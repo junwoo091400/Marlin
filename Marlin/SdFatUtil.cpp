@@ -1,34 +1,25 @@
-/**
- * Marlin 3D Printer Firmware
- * Copyright (C) 2016 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
+/* Arduino SdFat Library
+ * Copyright (C) 2008 by William Greiman
  *
- * Based on Sprinter and grbl.
- * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
+ * This file is part of the Arduino SdFat Library
  *
- * This program is free software: you can redistribute it and/or modify
+ * This Library is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * This program is distributed in the hope that it will be useful,
+ * This Library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
- */
 
-/**
- * Arduino SdFat Library
- * Copyright (C) 2008 by William Greiman
- *
- * This file is part of the Arduino Sd2Card Library
+ * You should have received a copy of the GNU General Public License
+ * along with the Arduino SdFat Library.  If not, see
+ * <http://www.gnu.org/licenses/>.
  */
 #include "Marlin.h"
 
-#if ENABLED(SDSUPPORT)
+#ifdef SDSUPPORT
 #include "SdFatUtil.h"
 
 //------------------------------------------------------------------------------
@@ -42,7 +33,7 @@ int SdFatUtil::FreeRam() {
   return &top - reinterpret_cast<char*>(sbrk(0));
 }
 #else  // __arm__
-extern char* __brkval;
+extern char *__brkval;
 extern char __bss_end;
 /** Amount of free RAM
  * \return The number of free bytes.
@@ -53,13 +44,41 @@ int SdFatUtil::FreeRam() {
 }
 #endif  // __arm
 
+void SdFatUtil::set_stack_guard()
+{	
+	char i = 0;
+	uint32_t *stack_guard;
+
+	stack_guard = (uint32_t*)&__bss_end;
+	//for (i = 0; i < 10; i++) {
+		*stack_guard = STACK_GUARD_TEST_VALUE;
+	//}
+}
+
+bool SdFatUtil::test_stack_integrity()
+{
+	uint32_t* stack_guard = (uint32_t*)&__bss_end;
+	return (*stack_guard == STACK_GUARD_TEST_VALUE);
+}
+
+uint32_t SdFatUtil::get_stack_guard_test_value()
+{
+	//static char i = 0;
+	uint32_t* stack_guard;
+	uint32_t output;
+	stack_guard = (uint32_t*)&__bss_end;
+	//output = *(stack_guard + i);
+	//i++;
+	output = *stack_guard;
+	return(output);
+}
 //------------------------------------------------------------------------------
 /** %Print a string in flash memory.
  *
  * \param[in] pr Print object for output.
  * \param[in] str Pointer to string stored in flash memory.
  */
-void SdFatUtil::print_P(PGM_P str) {
+void SdFatUtil::print_P( PGM_P str) {
   for (uint8_t c; (c = pgm_read_byte(str)); str++) MYSERIAL.write(c);
 }
 //------------------------------------------------------------------------------
@@ -68,8 +87,8 @@ void SdFatUtil::print_P(PGM_P str) {
  * \param[in] pr Print object for output.
  * \param[in] str Pointer to string stored in flash memory.
  */
-void SdFatUtil::println_P(PGM_P str) {
-  print_P(str);
+void SdFatUtil::println_P( PGM_P str) {
+  print_P( str);
   MYSERIAL.println();
 }
 //------------------------------------------------------------------------------
@@ -86,6 +105,6 @@ void SdFatUtil::SerialPrint_P(PGM_P str) {
  * \param[in] str Pointer to string stored in flash memory.
  */
 void SdFatUtil::SerialPrintln_P(PGM_P str) {
-  println_P(str);
+  println_P( str);
 }
 #endif

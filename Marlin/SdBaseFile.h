@@ -1,33 +1,24 @@
-/**
- * Marlin 3D Printer Firmware
- * Copyright (C) 2016 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
+/* Arduino SdFat Library
+ * Copyright (C) 2009 by William Greiman
  *
- * Based on Sprinter and grbl.
- * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
+ * This file is part of the Arduino SdFat Library
  *
- * This program is free software: you can redistribute it and/or modify
+ * This Library is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * This program is distributed in the hope that it will be useful,
+ * This Library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
- */
-
-/**
- * Arduino SdFat Library
- * Copyright (C) 2009 by William Greiman
- *
- * This file is part of the Arduino Sd2Card Library
+ * along with the Arduino SdFat Library.  If not, see
+ * <http://www.gnu.org/licenses/>.
  */
 #include "Marlin.h"
-#if ENABLED(SDSUPPORT)
+#ifdef SDSUPPORT
 
 #ifndef SdBaseFile_h
 #define SdBaseFile_h
@@ -54,11 +45,11 @@ struct filepos_t {
 
 // use the gnu style oflag in open()
 /** open() oflag for reading */
-uint8_t const O_READ = 0x01;
+uint8_t const O_READ = 0X01;
 /** open() oflag - same as O_IN */
 uint8_t const O_RDONLY = O_READ;
 /** open() oflag for write */
-uint8_t const O_WRITE = 0x02;
+uint8_t const O_WRITE = 0X02;
 /** open() oflag - same as O_WRITE */
 uint8_t const O_WRONLY = O_WRITE;
 /** open() oflag for reading and writing */
@@ -66,17 +57,17 @@ uint8_t const O_RDWR = (O_READ | O_WRITE);
 /** open() oflag mask for access modes */
 uint8_t const O_ACCMODE = (O_READ | O_WRITE);
 /** The file offset shall be set to the end of the file prior to each write. */
-uint8_t const O_APPEND = 0x04;
+uint8_t const O_APPEND = 0X04;
 /** synchronous writes - call sync() after each write */
-uint8_t const O_SYNC = 0x08;
+uint8_t const O_SYNC = 0X08;
 /** truncate the file to zero length */
-uint8_t const O_TRUNC = 0x10;
+uint8_t const O_TRUNC = 0X10;
 /** set the initial position at the end of the file */
-uint8_t const O_AT_END = 0x20;
+uint8_t const O_AT_END = 0X20;
 /** create the file if nonexistent */
-uint8_t const O_CREAT = 0x40;
+uint8_t const O_CREAT = 0X40;
 /** If O_CREAT and O_EXCL are set, open() shall fail if the file exists */
-uint8_t const O_EXCL = 0x80;
+uint8_t const O_EXCL = 0X80;
 
 // SdBaseFile class static and const definitions
 // flags for ls()
@@ -141,7 +132,7 @@ static inline uint8_t FAT_MONTH(uint16_t fatDate) {
  * \return Extracted day [1,31]
  */
 static inline uint8_t FAT_DAY(uint16_t fatDate) {
-  return fatDate & 0x1F;
+  return fatDate & 0X1F;
 }
 /** time field for FAT directory entry
  * \param[in] hour [0,23]
@@ -167,7 +158,7 @@ static inline uint8_t FAT_HOUR(uint16_t fatTime) {
  * \return Extracted minute [0,59]
  */
 static inline uint8_t FAT_MINUTE(uint16_t fatTime) {
-  return (fatTime >> 5) & 0x3F;
+  return(fatTime >> 5) & 0X3F;
 }
 /** second part of FAT directory time field
  * Note second/2 is stored in packed time.
@@ -177,7 +168,7 @@ static inline uint8_t FAT_MINUTE(uint16_t fatTime) {
  * \return Extracted second [0,58]
  */
 static inline uint8_t FAT_SECOND(uint16_t fatTime) {
-  return 2 * (fatTime & 0x1F);
+  return 2*(fatTime & 0X1F);
 }
 /** Default date for file timestamps is 1 Jan 2000 */
 uint16_t const FAT_DEFAULT_DATE = ((2000 - 1980) << 9) | (1 << 5) | 1;
@@ -193,7 +184,7 @@ class SdBaseFile {
   /** Create an instance. */
   SdBaseFile() : writeError(false), type_(FAT_FILE_TYPE_CLOSED) {}
   SdBaseFile(const char* path, uint8_t oflag);
-  ~SdBaseFile() {if (isOpen()) close();}
+  ~SdBaseFile() {if(isOpen()) close();}
   /**
    * writeError is set to true if an error occurs during a write().
    * Set writeError to false before calling print() and/or write() and check
@@ -214,7 +205,7 @@ class SdBaseFile {
   bool close();
   bool contiguousRange(uint32_t* bgnBlock, uint32_t* endBlock);
   bool createContiguous(SdBaseFile* dirFile,
-                        const char* path, uint32_t size);
+          const char* path, uint32_t size);
   /** \return The current cluster number for a file or directory. */
   uint32_t curCluster() const {return curCluster_;}
   /** \return The current position for a file or directory. */
@@ -275,7 +266,7 @@ class SdBaseFile {
   bool isRoot() const {
     return type_ == FAT_FILE_TYPE_ROOT_FIXED || type_ == FAT_FILE_TYPE_ROOT32;
   }
-  void ls(uint8_t flags = 0, uint8_t indent = 0);
+  void ls( uint8_t flags = 0, uint8_t indent = 0);
   bool mkdir(SdBaseFile* dir, const char* path, bool pFlag = true);
   // alias for backward compactability
   bool makeDir(SdBaseFile* dir, const char* path) {
@@ -288,7 +279,7 @@ class SdBaseFile {
   bool openRoot(SdVolume* vol);
   int peek();
   static void printFatDate(uint16_t fatDate);
-  static void printFatTime(uint16_t fatTime);
+  static void printFatTime( uint16_t fatTime);
   bool printName();
   int16_t read();
   int16_t read(void* buf, uint16_t nbyte);
@@ -315,10 +306,11 @@ class SdBaseFile {
    */
   bool seekEnd(int32_t offset = 0) {return seekSet(fileSize_ + offset);}
   bool seekSet(uint32_t pos);
+  //bool setCluster(uint32_t clust);
   bool sync();
   bool timestamp(SdBaseFile* file);
   bool timestamp(uint8_t flag, uint16_t year, uint8_t month, uint8_t day,
-                 uint8_t hour, uint8_t minute, uint8_t second);
+          uint8_t hour, uint8_t minute, uint8_t second);
   /** Type of file.  You should use isFile() or isDir() instead of type()
    * if possible.
    *
@@ -329,7 +321,7 @@ class SdBaseFile {
   /** \return SdVolume that contains this file. */
   SdVolume* volume() const {return vol_;}
   int16_t write(const void* buf, uint16_t nbyte);
-  //------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
  private:
   // allow SdFat to set cwd_
   friend class SdFat;
@@ -338,10 +330,10 @@ class SdBaseFile {
   // data time callback function
   static void (*dateTime_)(uint16_t* date, uint16_t* time);
   // bits defined in flags_
-  // should be 0x0F
+  // should be 0X0F
   static uint8_t const F_OFLAG = (O_ACCMODE | O_APPEND | O_SYNC);
   // sync of directory entry required
-  static uint8_t const F_FILE_DIR_DIRTY = 0x80;
+  static uint8_t const F_FILE_DIR_DIRTY = 0X80;
 
   // private data
   uint8_t   flags_;         // See above for definition of flags_ bits
@@ -361,18 +353,18 @@ class SdBaseFile {
   bool addCluster();
   bool addDirCluster();
   dir_t* cacheDirEntry(uint8_t action);
-  int8_t lsPrintNext(uint8_t flags, uint8_t indent);
+  int8_t lsPrintNext( uint8_t flags, uint8_t indent);
   static bool make83Name(const char* str, uint8_t* name, const char** ptr);
   bool mkdir(SdBaseFile* parent, const uint8_t dname[11]);
   bool open(SdBaseFile* dirFile, const uint8_t dname[11], uint8_t oflag);
   bool openCachedEntry(uint8_t cacheIndex, uint8_t oflags);
   dir_t* readDirCache();
-  //------------------------------------------------------------------------------
-  // to be deleted
-  static void printDirName(const dir_t& dir,
-                           uint8_t width, bool printSlash);
-  //------------------------------------------------------------------------------
-  // Deprecated functions  - suppress cpplint warnings with NOLINT comment
+//------------------------------------------------------------------------------
+// to be deleted
+  static void printDirName( const dir_t& dir,
+    uint8_t width, bool printSlash);
+//------------------------------------------------------------------------------
+// Deprecated functions  - suppress cpplint warnings with NOLINT comment
 #if ALLOW_DEPRECATED_FUNCTIONS && !defined(DOXYGEN)
  public:
   /** \deprecated Use:
@@ -384,16 +376,16 @@ class SdBaseFile {
   bool contiguousRange(uint32_t& bgnBlock, uint32_t& endBlock) {  // NOLINT
     return contiguousRange(&bgnBlock, &endBlock);
   }
-  /** \deprecated Use:
-    * bool createContiguous(SdBaseFile* dirFile,
-    *   const char* path, uint32_t size)
-    * \param[in] dirFile The directory where the file will be created.
-    * \param[in] path A path with a valid DOS 8.3 file name.
-    * \param[in] size The desired file size.
-    * \return true for success or false for failure.
-    */
+ /** \deprecated Use:
+   * bool createContiguous(SdBaseFile* dirFile,
+   *   const char* path, uint32_t size)
+   * \param[in] dirFile The directory where the file will be created.
+   * \param[in] path A path with a valid DOS 8.3 file name.
+   * \param[in] size The desired file size.
+   * \return true for success or false for failure.
+   */
   bool createContiguous(SdBaseFile& dirFile,  // NOLINT
-                        const char* path, uint32_t size) {
+    const char* path, uint32_t size) {
     return createContiguous(&dirFile, path, size);
   }
   /** \deprecated Use:
@@ -402,7 +394,7 @@ class SdBaseFile {
    * \param[in] dateTime The user's call back function.
    */
   static void dateTimeCallback(
-    void (*dateTime)(uint16_t &date, uint16_t &time)) {  // NOLINT
+    void (*dateTime)(uint16_t& date, uint16_t& time)) {  // NOLINT
     oldDateTime_ = dateTime;
     dateTime_ = dateTime ? oldToNew : 0;
   }
@@ -431,7 +423,7 @@ class SdBaseFile {
    * \return true for success or false for failure.
    */
   bool open(SdBaseFile& dirFile, // NOLINT
-            const char* path, uint8_t oflag) {
+    const char* path, uint8_t oflag) {
     return open(&dirFile, path, oflag);
   }
   /** \deprecated  Do not use in new apps
@@ -474,10 +466,10 @@ class SdBaseFile {
   static bool remove(SdBaseFile& dirFile, const char* path) {  // NOLINT
     return remove(&dirFile, path);
   }
-  //------------------------------------------------------------------------------
-  // rest are private
+//------------------------------------------------------------------------------
+// rest are private
  private:
-  static void (*oldDateTime_)(uint16_t &date, uint16_t &time);  // NOLINT
+  static void (*oldDateTime_)(uint16_t& date, uint16_t& time);  // NOLINT
   static void oldToNew(uint16_t* date, uint16_t* time) {
     uint16_t d;
     uint16_t t;

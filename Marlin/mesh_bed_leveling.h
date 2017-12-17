@@ -1,122 +1,125 @@
-/**
- * Marlin 3D Printer Firmware
- * Copyright (C) 2016 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
- *
- * Based on Sprinter and grbl.
- * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
- */
-
 #include "Marlin.h"
 
-#if ENABLED(MESH_BED_LEVELING)
+#ifdef MESH_BED_LEVELING
 
-  enum MeshLevelingState {
-    MeshReport,
-    MeshStart,
-    MeshNext,
-    MeshSet,
-    MeshSetZOffset,
-    MeshReset
-  };
+#define MEAS_NUM_X_DIST (float(MESH_MAX_X - MESH_MIN_X)/float(MESH_MEAS_NUM_X_POINTS - 1))
+#define MEAS_NUM_Y_DIST (float(MESH_MAX_Y - MESH_MIN_Y)/float(MESH_MEAS_NUM_Y_POINTS - 1))
 
-  enum MBLStatus {
-    MBL_STATUS_NONE = 0,
-    MBL_STATUS_HAS_MESH_BIT = 0,
-    MBL_STATUS_ACTIVE_BIT = 1
-  };
+#define MESH_X_DIST (float(MESH_MAX_X - MESH_MIN_X)/float(MESH_NUM_X_POINTS - 1))
+#define MESH_Y_DIST (float(MESH_MAX_Y - MESH_MIN_Y)/float(MESH_NUM_Y_POINTS - 1))
 
-  #define MESH_X_DIST ((MESH_MAX_X - (MESH_MIN_X)) / (GRID_MAX_POINTS_X - 1))
-  #define MESH_Y_DIST ((MESH_MAX_Y - (MESH_MIN_Y)) / (GRID_MAX_POINTS_Y - 1))
-
-  class mesh_bed_leveling {
-  public:
-    static uint8_t status; // Has Mesh and Is Active bits
-    static float z_offset,
-                 z_values[GRID_MAX_POINTS_X][GRID_MAX_POINTS_Y],
-                 index_to_xpos[GRID_MAX_POINTS_X],
-                 index_to_ypos[GRID_MAX_POINTS_Y];
-
+class mesh_bed_leveling {
+public:
+    uint8_t active;
+    float z_values[MESH_NUM_Y_POINTS][MESH_NUM_X_POINTS];
+    
     mesh_bed_leveling();
-
-    static void reset();
-
-    static void set_z(const int8_t px, const int8_t py, const float &z) { z_values[px][py] = z; }
-
-    static bool active()                       { return TEST(status, MBL_STATUS_ACTIVE_BIT); }
-    static void set_active(const bool onOff)   { onOff ? SBI(status, MBL_STATUS_ACTIVE_BIT) : CBI(status, MBL_STATUS_ACTIVE_BIT); }
-    static bool has_mesh()                     { return TEST(status, MBL_STATUS_HAS_MESH_BIT); }
-    static void set_has_mesh(const bool onOff) { onOff ? SBI(status, MBL_STATUS_HAS_MESH_BIT) : CBI(status, MBL_STATUS_HAS_MESH_BIT); }
-
-    static inline void zigzag(const int8_t index, int8_t &px, int8_t &py) {
-      px = index % (GRID_MAX_POINTS_X);
-      py = index / (GRID_MAX_POINTS_X);
-      if (py & 1) px = (GRID_MAX_POINTS_X - 1) - px; // Zig zag
+    
+    void reset();
+    
+#if MESH_NUM_X_POINTS>=5 && MESH_NUM_Y_POINTS>=5 && (MESH_NUM_X_POINTS&1)==1 && (MESH_NUM_Y_POINTS&1)==1
+    void upsample_3x3();
+#endif
+    
+    static float get_x(int i) { return float(MESH_MIN_X) + float(MESH_X_DIST) * float(i); }
+    static float get_y(int i) { return float(MESH_MIN_Y) + float(MESH_Y_DIST) * float(i); }
+    
+    // Measurement point for the Z probe.
+    // If use_default=true, then the default positions for a correctly built printer are used.
+    // Otherwise a correction matrix is pulled from the EEPROM if available.
+    static void get_meas_xy(int ix, int iy, float &x, float &y, bool use_default);
+    
+    void set_z(int ix, int iy, float z) { z_values[iy][ix] = z; }
+    
+    int select_x_index(float x) {
+        int i = 1;
+        while (x > get_x(i) && i < MESH_NUM_X_POINTS - 1) i++;
+        return i - 1;
     }
-
-    static void set_zigzag_z(const int8_t index, const float &z) {
-      int8_t px, py;
-      zigzag(index, px, py);
-      set_z(px, py, z);
+    
+    int select_y_index(float y) {
+        int i = 1;
+        while (y > get_y(i) && i < MESH_NUM_Y_POINTS - 1) i++;
+        return i - 1;
     }
-
-    static int8_t cell_index_x(const float &x) {
-      int8_t cx = (x - (MESH_MIN_X)) * (1.0 / (MESH_X_DIST));
-      return constrain(cx, 0, (GRID_MAX_POINTS_X) - 2);
+    
+    float get_z(float x, float y) {
+        int   i, j;
+        float s, t;
+        
+#if MESH_NUM_X_POINTS==3 && MESH_NUM_Y_POINTS==3
+#define MESH_MID_X (0.5f*(MESH_MIN_X+MESH_MAX_X))
+#define MESH_MID_Y (0.5f*(MESH_MIN_Y+MESH_MAX_Y))
+        if (x < MESH_MID_X) {
+            i = 0;
+            s = (x - MESH_MIN_X) / MESH_X_DIST;
+            if (s > 1.f)
+                s = 1.f;
+        } else {
+            i = 1;
+            s = (x - MESH_MID_X) / MESH_X_DIST;
+            if (s < 0)
+                s = 0;
+        }
+        if (y < MESH_MID_Y) {
+            j = 0;
+            t = (y - MESH_MIN_Y) / MESH_Y_DIST;
+            if (t > 1.f)
+                t = 1.f;
+        } else {
+            j = 1;
+            t = (y - MESH_MID_Y) / MESH_Y_DIST;
+            if (t < 0)
+                t = 0;
+        }
+#else
+        i = int(floor((x - MESH_MIN_X) / MESH_X_DIST));
+        if (i < 0) {
+            i = 0;
+            s = (x - MESH_MIN_X) / MESH_X_DIST;
+            if (s > 1.f)
+                s = 1.f;
+        }
+        else if (i > MESH_NUM_X_POINTS - 2) {
+            i = MESH_NUM_X_POINTS - 2;
+            s = (x - get_x(i)) / MESH_X_DIST;
+            if (s < 0)
+                s = 0;
+        } else {
+            s = (x - get_x(i)) / MESH_X_DIST;
+            if (s < 0)
+                s = 0;
+            else if (s > 1.f)
+                s = 1.f;
+        }
+        j = int(floor((y - MESH_MIN_Y) / MESH_Y_DIST));
+        if (j < 0) {
+            j = 0;
+            t = (y - MESH_MIN_Y) / MESH_Y_DIST;
+            if (t > 1.f)
+                t = 1.f;
+        } else if (j > MESH_NUM_Y_POINTS - 2) {
+            j = MESH_NUM_Y_POINTS - 2;
+            t = (y - get_y(j)) / MESH_Y_DIST;
+            if (t < 0)
+                t = 0;
+        } else {
+            t = (y - get_y(j)) / MESH_Y_DIST;
+            if (t < 0)
+                t = 0;
+            else if (t > 1.f)
+                t = 1.f;
+        }
+#endif /* MESH_NUM_X_POINTS==3 && MESH_NUM_Y_POINTS==3 */
+        
+        float si = 1.f-s;
+        float z0 = si * z_values[j  ][i] + s * z_values[j  ][i+1];
+        float z1 = si * z_values[j+1][i] + s * z_values[j+1][i+1];
+        return (1.f-t) * z0 + t * z1;
     }
+    
+};
 
-    static int8_t cell_index_y(const float &y) {
-      int8_t cy = (y - (MESH_MIN_Y)) * (1.0 / (MESH_Y_DIST));
-      return constrain(cy, 0, (GRID_MAX_POINTS_Y) - 2);
-    }
+extern mesh_bed_leveling mbl;
 
-    static int8_t probe_index_x(const float &x) {
-      int8_t px = (x - (MESH_MIN_X) + 0.5 * (MESH_X_DIST)) * (1.0 / (MESH_X_DIST));
-      return WITHIN(px, 0, GRID_MAX_POINTS_X - 1) ? px : -1;
-    }
-
-    static int8_t probe_index_y(const float &y) {
-      int8_t py = (y - (MESH_MIN_Y) + 0.5 * (MESH_Y_DIST)) * (1.0 / (MESH_Y_DIST));
-      return WITHIN(py, 0, GRID_MAX_POINTS_Y - 1) ? py : -1;
-    }
-
-    static float calc_z0(const float &a0, const float &a1, const float &z1, const float &a2, const float &z2) {
-      const float delta_z = (z2 - z1) / (a2 - a1),
-                  delta_a = a0 - a1;
-      return z1 + delta_a * delta_z;
-    }
-
-    static float get_z(const float &x0, const float &y0
-      #if ENABLED(ENABLE_LEVELING_FADE_HEIGHT)
-        , const float &factor
-      #endif
-    ) {
-      const int8_t cx = cell_index_x(x0), cy = cell_index_y(y0);
-      const float z1 = calc_z0(x0, index_to_xpos[cx], z_values[cx][cy], index_to_xpos[cx + 1], z_values[cx + 1][cy]),
-                  z2 = calc_z0(x0, index_to_xpos[cx], z_values[cx][cy + 1], index_to_xpos[cx + 1], z_values[cx + 1][cy + 1]),
-                  z0 = calc_z0(y0, index_to_ypos[cy], z1, index_to_ypos[cy + 1], z2);
-
-      return z_offset + z0
-        #if ENABLED(ENABLE_LEVELING_FADE_HEIGHT)
-          * factor
-        #endif
-      ;
-    }
-  };
-
-  extern mesh_bed_leveling mbl;
-
-#endif // MESH_BED_LEVELING
+#endif  // MESH_BED_LEVELING
